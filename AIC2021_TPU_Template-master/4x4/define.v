@@ -26,7 +26,7 @@
 `define WORD_SIZE 4 //수정
 `define GBUFF_ADDR_SIZE 4 //수정
 //`define GBUFF_INDX_SIZE (GBUFF_ADDR_SIZE/WORD_SIZE)
-`define GBUFF_INDX_SIZE 8
+`define GBUFF_INDX_SIZE 4 //수정
 `define GBUFF_SIZE (WORD_SIZE*GBUFF_ADDR_SIZE)
 
 //----------------------------------------------------------------------------//
