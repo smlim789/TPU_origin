@@ -6,11 +6,11 @@
 //                                                                            //
 //============================================================================//
 
-`ifndef TPU_V
-`define TPU_V
+//`ifndef TPU_V
+//`define TPU_V
 
 `include "define.v"
-`include "pe.v"
+//`include "pe.v"
 `define LEFT_BUF_SIZE 10  // CHANGED: Was 8. (5+5-1) + 1 = 10
 `define DOWN_BUF_SIZE 14  // CHANGED: Was 11. (5+5-1) + 5 = 14
 
