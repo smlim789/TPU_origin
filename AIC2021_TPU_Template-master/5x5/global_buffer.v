@@ -13,8 +13,8 @@ module global_buffer(clk, rst, wr_en, index, data_in, data_out);
   input clk;
   input rst;
   input wr_en; // Write enable: 1->write 0->read
-  input      [`GBUFF_INDX_SIZE-1:0] index;
-  input      [`WORD_SIZE-1:0]       data_in;
+  input       [`GBUFF_INDX_SIZE-1:0] index;
+  input       [`WORD_SIZE-1:0]       data_in;
   output reg [`WORD_SIZE-1:0]       data_out;
   integer i;
   reg wr_en_reg;
@@ -33,7 +33,7 @@ module global_buffer(clk, rst, wr_en, index, data_in, data_out);
   always @ (posedge clk or posedge rst) begin
     if(rst)begin
       for(i=0; i<=256; i=i+1)
-        gbuff[i] <= 32'd0;
+        gbuff[i] <= `WORD_SIZE'd0; // Use parameter for reset
     end
     else begin
       if(wr_en_reg) begin
