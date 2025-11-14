@@ -21,8 +21,9 @@ module global_buffer(clk, rst, wr_en, index, data_in, data_out);
 //----------------------------------------------------------------------------//
 // Global buffer (Don't change the name)                                      //
 //----------------------------------------------------------------------------//
-  //reg [`GBUFF_ADDR_SIZE-1:0] gbuff [`WORD_SIZE-1:0];
-  reg [`WORD_SIZE-1:0] gbuff [`GBUFF_ADDR_SIZE-1:0];
+  
+  // CHANGED: Switched to modern Verilog-2001 array declaration
+  reg [`WORD_SIZE-1:0] gbuff [0:`GBUFF_ADDR_SIZE-1];
 
 //----------------------------------------------------------------------------//
 // Global buffer read write behavior                                          //
@@ -32,8 +33,9 @@ module global_buffer(clk, rst, wr_en, index, data_in, data_out);
   end
   always @ (posedge clk or posedge rst) begin
     if(rst)begin
-      for(i=0; i<=256; i=i+1)
-        gbuff[i] <= `WORD_SIZE'd0; // Use parameter for reset
+      // CHANGED: Loop to match new declaration
+      for(i=0; i<`GBUFF_ADDR_SIZE; i=i+1)
+        gbuff[i] <= `WORD_SIZE'd0;
     end
     else begin
       if(wr_en_reg) begin
