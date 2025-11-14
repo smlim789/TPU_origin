@@ -499,4 +499,4 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
 		end
 	end
 endmodule
-`endif
+//`endif
