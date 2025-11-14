@@ -17,18 +17,18 @@ module top(clk, rst, start, m, n,  k, done);
   input [3:0] m, k, n;
   output reg done;
   wire done_wire;
-  wire                  wr_en_a,
-                        wr_en_b,
-                        wr_en_out;
+  wire                 wr_en_a,
+                       wr_en_b,
+                       wr_en_out;
   wire  [`DATA_SIZE-1:0] index_a,
-                        index_b,
-                        index_out;
+                       index_b,
+                       index_out;
   wire  [`WORD_SIZE-1:0] data_in_a,
-                        data_in_b,
-                        data_in_o;
+                       data_in_b,
+                       data_in_o;
   wire [`WORD_SIZE-1:0] data_out_a,
-                        data_out_b,
-                        data_out_o;
+                       data_out_b,
+                       data_out_o;
 
 //----------------------------------------------------------------------------//
 // TPU module declaration                                                     //
@@ -71,8 +71,8 @@ module top(clk, rst, start, m, n,  k, done);
                         .data_in (data_in_b ),
                         .data_out(data_out_b));
 
-  global_buffer GBUFF_OUT(.clk     (clk      ),
-                          .rst     (rst      ),
+  global_buffer GBUFF_OUT(.clk     (clk     ),
+                          .rst     (rst     ),
                           .wr_en   (wr_en_out),
                           .index   (index_out),
                           .data_in (data_in_o),
