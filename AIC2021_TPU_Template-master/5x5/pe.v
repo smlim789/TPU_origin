@@ -8,7 +8,7 @@
 
 
 `include "define.v"
-module pe(clk,rst,in_left,in_up,in_weight,out_right,out_down,weight_en,go);
+module PE(clk,rst,in_left,in_up,in_weight,out_right,out_down,weight_en,go);
 	
 	input clk, rst;
 	input [`DATA_SIZE-1:0] in_left;
