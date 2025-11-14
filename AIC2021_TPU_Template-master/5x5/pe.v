@@ -42,4 +42,4 @@ module PE(clk,rst,in_left,in_up,in_weight,out_right,out_down,weight_en,go);
 		end
 	end
 endmodule
-`endif
+//`endif
