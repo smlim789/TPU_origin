@@ -1,7 +1,7 @@
 //============================================================================//
 // AIC2021 Project1 - TPU Design                                              //
 // file: top_tb.v                                                             //
-// description: testbench for tpu top module                                  //
+// description: testbench for tpu top module (MODIFIED for 5x5)               //
 // authors: kaikai (deekai9139@gmail.com)                                     //
 //          suhan  (jjs93126@gmail.com)                                       //
 //============================================================================//
@@ -19,7 +19,8 @@ module top_tb;
   reg [3:0] row_a, col_b, k;
   integer err, i, row_offset;
 
-  reg [`GBUFF_ADDR_SIZE-1:0] GOLDEN [`WORD_SIZE-1:0];
+  reg [`WORD_SIZE-1:0] GOLDEN [`GBUFF_ADDR_SIZE-1:0];
+
   always #(`CYCLE/2) clk = ~clk;
 
   top TOP(.clk(clk),
@@ -42,13 +43,9 @@ module top_tb;
     $readmemb("build/matrix_a.bin", TOP.GBUFF_A.gbuff);
     $readmemb("build/matrix_b.bin", TOP.GBUFF_B.gbuff);
     $readmemb("build/golden.bin", GOLDEN); 
-
-    //for (i = 0; i < `MATRIX_A_ROW*`MATRIX_B_COL/4; i=i+1) begin
-    //  $display("%h %h %h %h",
-    //    GOLDEN[i][7:0], GOLDEN[i][15:8], GOLDEN[i][23:16], GOLDEN[i][31:24]);
-    //end
-    row_offset = (`MATRIX_B_COL >= 9)? 3:
-                 (`MATRIX_B_COL >= 5 && `MATRIX_B_COL < 9)? 2: 1;
+    
+    row_offset = (`MATRIX_B_COL - 1) / 5 + 1;
+    
 	//$display ("done : %d", done);
     wait(done == 1);
     $display("\nSimulation Done.\n");
@@ -59,49 +56,56 @@ module top_tb;
 //----------------------------------------------------------------------------//
     err = 0;
     for (i = 0; i < `MATRIX_A_ROW * row_offset; i=i+1) begin
-      // [7:0]
-      if (GOLDEN[i][31:24] != TOP.GBUFF_OUT.gbuff[i][7:0]) begin
+      // [7:0] vs [39:32]
+      if (GOLDEN[i][39:32] != TOP.GBUFF_OUT.gbuff[i][7:0]) begin
         $display("GBUFF_OUT[%2d][ 7: 0] = %2h, expect = %2h",
-          i, TOP.GBUFF_OUT.gbuff[i][7:0], GOLDEN[i][31:24]);
+          i, TOP.GBUFF_OUT.gbuff[i][7:0], GOLDEN[i][39:32]);
         err = err + 1;
       end
       else begin
         $display("GBUFF_OUT[%2d][ 7: 0] = %2h, pass!",
           i, TOP.GBUFF_OUT.gbuff[i][7:0]);
       end
-      // [15:8]
-      if (GOLDEN[i][23:16] != TOP.GBUFF_OUT.gbuff[i][15:8]) begin
+      // [15:8] vs [31:24]
+      if (GOLDEN[i][31:24] != TOP.GBUFF_OUT.gbuff[i][15:8]) begin
         $display("GBUFF_OUT[%2d][15: 8] = %2h, expect = %2h",
-          i, TOP.GBUFF_OUT.gbuff[i][15:8], GOLDEN[i][23:16]);
+          i, TOP.GBUFF_OUT.gbuff[i][15:8], GOLDEN[i][31:24]);
         err = err + 1;
       end
       else begin
         $display("GBUFF_OUT[%2d][15: 8] = %2h, pass!",
           i, TOP.GBUFF_OUT.gbuff[i][15:8]);
       end
-      // [23:16]
-      if (GOLDEN[i][15:8] != TOP.GBUFF_OUT.gbuff[i][23:16]) begin
+      // [23:16] vs [23:16]
+      if (GOLDEN[i][23:16] != TOP.GBUFF_OUT.gbuff[i][23:16]) begin
         $display("GBUFF_OUT[%2d][23:16] = %2h, expect = %2h",
-          i, TOP.GBUFF_OUT.gbuff[i][23:16], GOLDEN[i][15:8]);
+          i, TOP.GBUFF_OUT.gbuff[i][23:16], GOLDEN[i][23:16]);
         err = err + 1;
       end
       else begin
         $display("GBUFF_OUT[%2d][23:16] = %2h, pass!",
           i, TOP.GBUFF_OUT.gbuff[i][23:16]);
       end
-      // [31:24]
-      if (GOLDEN[i][7:0] != TOP.GBUFF_OUT.gbuff[i][31:24]) begin
+      // [31:24] vs [15:8]
+      if (GOLDEN[i][15:8] != TOP.GBUFF_OUT.gbuff[i][31:24]) begin
         $display("GBUFF_OUT[%2d][31:24] = %2h, expect = %2h",
-          i, TOP.GBUFF_OUT.gbuff[i][31:24], GOLDEN[i][7:0]);
+          i, TOP.GBUFF_OUT.gbuff[i][31:24], GOLDEN[i][15:8]);
         err = err + 1;
       end
       else begin
-        $display("GBUFF_OUT[%2d]31:24] = %2h, pass!",
+        $display("GBUFF_OUT[%2d][31:24] = %2h, pass!",
           i, TOP.GBUFF_OUT.gbuff[i][31:24]);
       end
-
-      //$display("%h %h %h %h",
-      //  GOLDEN[i][7:0], GOLDEN[i][15:8], GOLDEN[i][23:16], GOLDEN[i][31:24]);
+      // [39:32] vs [7:0]
+      if (GOLDEN[i][7:0] != TOP.GBUFF_OUT.gbuff[i][39:32]) begin
+        $display("GBUFF_OUT[%2d][39:32] = %2h, expect = %2h",
+          i, TOP.GBUFF_OUT.gbuff[i][39:32], GOLDEN[i][7:0]);
+        err = err + 1;
+      end
+      else begin
+        $display("GBUFF_OUT[%2d][39:32] = %2h, pass!",
+          i, TOP.GBUFF_OUT.gbuff[i][39:32]);
+      end
     end
 
     check_err(err);
@@ -115,55 +119,60 @@ module top_tb;
     #(`CYCLE*`MAX)
     err = 0;
     for (i = 0; i < `MATRIX_A_ROW * row_offset; i=i+1) begin
-      // [7:0]
-      if (GOLDEN[i][31:24] != TOP.GBUFF_OUT.gbuff[i][7:0]) begin
+      // [7:0] vs [39:32]
+      if (GOLDEN[i][39:32] != TOP.GBUFF_OUT.gbuff[i][7:0]) begin
         $display("GBUFF_OUT[%2d][ 7: 0] = %2h, expect = %2h",
-          i, TOP.GBUFF_OUT.gbuff[i][7:0], GOLDEN[i][31:24]);
+          i, TOP.GBUFF_OUT.gbuff[i][7:0], GOLDEN[i][39:32]);
         err = err + 1;
       end
       else begin
         $display("GBUFF_OUT[%2d][ 7: 0] = %2h, pass!",
           i, TOP.GBUFF_OUT.gbuff[i][7:0]);
       end
-      // [15:8]
-      if (GOLDEN[i][23:16] != TOP.GBUFF_OUT.gbuff[i][15:8]) begin
+      // [15:8] vs [31:24]
+      if (GOLDEN[i][31:24] != TOP.GBUFF_OUT.gbuff[i][15:8]) begin
         $display("GBUFF_OUT[%2d][15: 8] = %2h, expect = %2h",
-          i, TOP.GBUFF_OUT.gbuff[i][15:8], GOLDEN[i][23:16]);
+          i, TOP.GBUFF_OUT.gbuff[i][15:8], GOLDEN[i][31:24]);
         err = err + 1;
       end
       else begin
         $display("GBUFF_OUT[%2d][15: 8] = %2h, pass!",
           i, TOP.GBUFF_OUT.gbuff[i][15:8]);
       end
-      // [23:16]
-      if (GOLDEN[i][15:8] != TOP.GBUFF_OUT.gbuff[i][23:16]) begin
+      // [23:16] vs [23:16]
+      if (GOLDEN[i][23:16] != TOP.GBUFF_OUT.gbuff[i][23:16]) begin
         $display("GBUFF_OUT[%2d][23:16] = %2h, expect = %2h",
-          i, TOP.GBUFF_OUT.gbuff[i][23:16], GOLDEN[i][15:8]);
+          i, TOP.GBUFF_OUT.gbuff[i][23:16], GOLDEN[i][23:16]);
         err = err + 1;
       end
       else begin
         $display("GBUFF_OUT[%2d][23:16] = %2h, pass!",
           i, TOP.GBUFF_OUT.gbuff[i][23:16]);
       end
-      // [31:24]
-      if (GOLDEN[i][7:0] != TOP.GBUFF_OUT.gbuff[i][31:24]) begin
+      // [31:24] vs [15:8]
+      if (GOLDEN[i][15:8] != TOP.GBUFF_OUT.gbuff[i][31:24]) begin
         $display("GBUFF_OUT[%2d][31:24] = %2h, expect = %2h",
-          i, TOP.GBUFF_OUT.gbuff[i][31:24], GOLDEN[i][7:0]);
+          i, TOP.GBUFF_OUT.gbuff[i][31:24], GOLDEN[i][15:8]);
         err = err + 1;
       end
       else begin
         $display("GBUFF_OUT[%2d][31:24] = %2h, pass!",
           i, TOP.GBUFF_OUT.gbuff[i][31:24]);
       end
-
+      // [39:32] vs [7:0]
+      if (GOLDEN[i][7:0] != TOP.GBUFF_OUT.gbuff[i][39:32]) begin
+        $display("GBUFF_OUT[%2d][39:32] = %2h, expect = %2h",
+          i, TOP.GBUFF_OUT.gbuff[i][39:32], GOLDEN[i][7:0]);
+        err = err + 1;
+      end
+      else begin
+        $display("GBUFF_OUT[%2d][39:32] = %2h, pass!",
+          i, TOP.GBUFF_OUT.gbuff[i][39:32]);
+      end
     end
     check_err(err);
     $finish;
   end
-
-
-
-
 
 //----------------------------------------------------------------------------//
 // Task Declarations                                                          //
@@ -174,32 +183,19 @@ module top_tb;
     if( err == 0 )
     begin
       $display("\n");
-      $display("                                             / \\  //\\                      ");
-      $display("                              |\\___/|      /   \\//  \\\\                   ");
-      $display("                             /0  0  \\__  /    //  | \\ \\                   ");
-      $display("                            /     /  \\/_/    //   |  \\  \\                 ");
-      $display("                            @_^_@'/   \\/_   //    |   \\   \\               ");
-      $display("                            //_^_/     \\/_ //     |    \\    \\             ");
-      $display("                         ( //) |        \\///      |     \\     \\           ");
-      $display("                        ( / /) _|_ /   )  //       |      \\     _\\         ");
-      $display("                      ( // /) '/,_ _ _/  ( ; -.    |    _ _\\.-~        .-~~~^-.                      ");
-      $display(" ********************(( / / )) ,-{        _      `-.|.-~-.            .~         `.                   ");
-      $display(" **                   (( // / ))  '/\\      /                 ~-. _ .-~      .-~^-.  \                ");
-      $display(" **  Congratulations!  (( /// ))      `.   {            }                    /      \  \              ");
-      $display(" **  Simulation Passed!  (( / ))     .----~-.\\        \\-'                .~         \  `. \^-.      ");
-      $display(" **                      **           ///.----..>        \\             _ -~             `.  ^-`  ^-_ ");
-      $display(" **************************             ///-._ _ _ _ _ _ _}^ - - - -- ~                     ~-- ,.-~  ");
+      $display("******************************");
+      $display("** Congratulations!         **");
+      $display("** Simulation Passed!       **");
+      $display("******************************");
       $display("\n");
     end
     else
     begin
       $display("\n");
-      $display(" **************************    __ __   ");
-      $display(" **                      **   /--\\/ \\ ");
-      $display(" **  Awwwww              **  |   /   | ");
-      $display(" **  Simulation Failed!  **  |-    --| ");
-      $display(" **                      **   \\__-*_/ ");
-      $display(" **************************            ");
+      $display("******************************");
+      $display("** Awwwww                   **");
+      $display("** Simulation Failed!       **");
+      $display("******************************");
       $display(" Total %4d errors\n", err);
     end
   endtask
