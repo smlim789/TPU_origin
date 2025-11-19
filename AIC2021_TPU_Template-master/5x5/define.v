@@ -29,6 +29,12 @@
 `define GBUFF_INDX_SIZE 8
 `define GBUFF_SIZE (WORD_SIZE*GBUFF_ADDR_SIZE)
 
+// Buffer Sizing for 5x5
+// Left Buf: Latency for skewing (approx 2*N)
+`define LEFT_BUF_SIZE 10 
+// Down Buf: Latency for collection (approx 3*N - 1)
+`define DOWN_BUF_SIZE 14 
+
 //----------------------------------------------------------------------------//
 // Simulations Definations                                                    //
 //----------------------------------------------------------------------------//
