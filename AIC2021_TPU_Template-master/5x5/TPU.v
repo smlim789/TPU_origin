@@ -51,6 +51,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
     reg [8:0] exe_count;
     
     // MAPPING: MSB [39:32] is Row/Col 0. LSB [7:0] is Row/Col 4.
+    // 5x5 PE Instantiation
     
     // --- ROW 0 ---
     PE pe00(.clk(clk), .rst(rst), .in_left(left_buf0[0]),      .in_up(8'd0),               .in_weight(data_in_b[39:32]), .out_right(wire_row_0[31:24]), .out_down(wire_col_0[31:24]), .weight_en(weight_en[0]), .go(go_pe)); 
@@ -89,7 +90,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
     
     // FSM & Logic
     always @(*) begin
-        output_buf_rst = 0; // LATCH FIX
+        output_buf_rst = 0; 
 
         case (state)
             IDLE: begin
@@ -235,7 +236,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     exe_count <= exe_count + 1;
                 end
                 STORE: begin
-                    // *** FIXED MAPPING HERE ***
                     // down_buf0 (Col 0) mapped to MSB [39:32] using index 9
                     // down_buf4 (Col 4) mapped to LSB [7:0] using index 5
                     output_buf[0] <= {
@@ -279,8 +279,10 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     out_count <= out_count + 1; index_o <= index_o + 1; temp_o <= temp_o + 1;
                     temp_a <= base_a; temp_b <= base_b;
                 end
-                DONE: begin end             
-                default: begin end         
+                DONE: begin
+                    wr_en_o = 0; done = 1;
+                end
+                default: begin end
             endcase
         end
     end
