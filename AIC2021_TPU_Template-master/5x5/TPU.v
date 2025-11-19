@@ -3,6 +3,11 @@
 
 `include "define.v"
 
+// Ensure default if define.v is missing, but user should set this to 32 in define.v
+`ifndef WORD_SIZE
+    `define WORD_SIZE 32
+`endif
+
 module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
            data_in_a, data_in_b, data_in_o,
            data_out_o, m, n, k, start, done);
@@ -57,7 +62,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
     wire [31:0] wire_col_3;
     wire [31:0] wire_col_4;
     
-    /******** output buffer (Size 5) ********/
+    /******** output buffer ********/
     reg [`WORD_SIZE-1:0] output_buf [4:0];
     
     /******** control register ********/
@@ -72,101 +77,107 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
     reg [8:0] base_a, base_b, out_max;
     reg [8:0] exe_count;
 
-    // *** FIX 1: Input Alignment ***
-    // Create shifted version of B input so 32-bit file data aligns to the upper 40-bit lanes
-    wire [`WORD_SIZE-1:0] data_in_b_shifted;
-    assign data_in_b_shifted = data_in_b << 8;
+    // *** INTERNAL PADDING ***
+    // Convert 32-bit input to 40-bit for 5x5 array.
+    // We pad the LSBs with 0. This effectively feeds 0 to Row 4 / Col 4.
+    wire [39:0] padded_a;
+    wire [39:0] padded_b;
     
+    assign padded_a = {data_in_a, 8'd0};
+    assign padded_b = {data_in_b, 8'd0};
+
+    
+
     /******** PE Declaration (5x5 Grid) ********/
     
     // --- ROW 0 ---
     PE pe00(.clk(clk), .rst(rst), 
-            .in_left(left_buf0[0]), .in_up(8'd0), .in_weight(data_in_b_shifted[39:32]),
+            .in_left(left_buf0[0]), .in_up(8'd0), .in_weight(padded_b[39:32]),
             .out_right(wire_row_0[31:24]), .out_down(wire_col_0[31:24]), .weight_en(weight_en[0]), .go(go_pe)); 
     PE pe01(.clk(clk), .rst(rst), 
-            .in_left(wire_row_0[31:24]), .in_up(8'd0), .in_weight(data_in_b_shifted[31:24]),
+            .in_left(wire_row_0[31:24]), .in_up(8'd0), .in_weight(padded_b[31:24]),
             .out_right(wire_row_0[23:16]), .out_down(wire_col_1[31:24]), .weight_en(weight_en[1]), .go(go_pe)); 
     PE pe02(.clk(clk), .rst(rst), 
-            .in_left(wire_row_0[23:16]), .in_up(8'd0), .in_weight(data_in_b_shifted[23:16]),
+            .in_left(wire_row_0[23:16]), .in_up(8'd0), .in_weight(padded_b[23:16]),
             .out_right(wire_row_0[15:8]), .out_down(wire_col_2[31:24]), .weight_en(weight_en[2]), .go(go_pe)); 
     PE pe03(.clk(clk), .rst(rst), 
-            .in_left(wire_row_0[15:8]), .in_up(8'd0), .in_weight(data_in_b_shifted[15:8]),
+            .in_left(wire_row_0[15:8]), .in_up(8'd0), .in_weight(padded_b[15:8]),
             .out_right(wire_row_0[7:0]), .out_down(wire_col_3[31:24]), .weight_en(weight_en[3]), .go(go_pe)); 
     PE pe04(.clk(clk), .rst(rst), 
-            .in_left(wire_row_0[7:0]), .in_up(8'd0), .in_weight(data_in_b_shifted[7:0]),
+            .in_left(wire_row_0[7:0]), .in_up(8'd0), .in_weight(padded_b[7:0]), // 0 input
             .out_right(), .out_down(wire_col_4[31:24]), .weight_en(weight_en[4]), .go(go_pe)); 
 
     // --- ROW 1 ---
     PE pe10(.clk(clk), .rst(rst), 
-            .in_left(left_buf1[0]), .in_up(wire_col_0[31:24]), .in_weight(data_in_b_shifted[39:32]),
+            .in_left(left_buf1[0]), .in_up(wire_col_0[31:24]), .in_weight(padded_b[39:32]),
             .out_right(wire_row_1[31:24]), .out_down(wire_col_0[23:16]), .weight_en(weight_en[5]), .go(go_pe));  
     PE pe11(.clk(clk), .rst(rst), 
-            .in_left(wire_row_1[31:24]), .in_up(wire_col_1[31:24]), .in_weight(data_in_b_shifted[31:24]),
+            .in_left(wire_row_1[31:24]), .in_up(wire_col_1[31:24]), .in_weight(padded_b[31:24]),
             .out_right(wire_row_1[23:16]), .out_down(wire_col_1[23:16]), .weight_en(weight_en[6]), .go(go_pe)); 
     PE pe12(.clk(clk), .rst(rst), 
-            .in_left(wire_row_1[23:16]), .in_up(wire_col_2[31:24]), .in_weight(data_in_b_shifted[23:16]),
+            .in_left(wire_row_1[23:16]), .in_up(wire_col_2[31:24]), .in_weight(padded_b[23:16]),
             .out_right(wire_row_1[15:8]), .out_down(wire_col_2[23:16]), .weight_en(weight_en[7]), .go(go_pe)); 
     PE pe13(.clk(clk), .rst(rst), 
-            .in_left(wire_row_1[15:8]), .in_up(wire_col_3[31:24]), .in_weight(data_in_b_shifted[15:8]),
+            .in_left(wire_row_1[15:8]), .in_up(wire_col_3[31:24]), .in_weight(padded_b[15:8]),
             .out_right(wire_row_1[7:0]), .out_down(wire_col_3[23:16]), .weight_en(weight_en[8]), .go(go_pe)); 
     PE pe14(.clk(clk), .rst(rst), 
-            .in_left(wire_row_1[7:0]), .in_up(wire_col_4[31:24]), .in_weight(data_in_b_shifted[7:0]),
+            .in_left(wire_row_1[7:0]), .in_up(wire_col_4[31:24]), .in_weight(padded_b[7:0]),
             .out_right(), .out_down(wire_col_4[23:16]), .weight_en(weight_en[9]), .go(go_pe)); 
 
     // --- ROW 2 ---
     PE pe20(.clk(clk), .rst(rst), 
-            .in_left(left_buf2[0]), .in_up(wire_col_0[23:16]), .in_weight(data_in_b_shifted[39:32]),
+            .in_left(left_buf2[0]), .in_up(wire_col_0[23:16]), .in_weight(padded_b[39:32]),
             .out_right(wire_row_2[31:24]), .out_down(wire_col_0[15:8]), .weight_en(weight_en[10]), .go(go_pe));  
     PE pe21(.clk(clk), .rst(rst), 
-            .in_left(wire_row_2[31:24]), .in_up(wire_col_1[23:16]), .in_weight(data_in_b_shifted[31:24]),
+            .in_left(wire_row_2[31:24]), .in_up(wire_col_1[23:16]), .in_weight(padded_b[31:24]),
             .out_right(wire_row_2[23:16]), .out_down(wire_col_1[15:8]), .weight_en(weight_en[11]), .go(go_pe)); 
     PE pe22(.clk(clk), .rst(rst), 
-            .in_left(wire_row_2[23:16]), .in_up(wire_col_2[23:16]), .in_weight(data_in_b_shifted[23:16]),
+            .in_left(wire_row_2[23:16]), .in_up(wire_col_2[23:16]), .in_weight(padded_b[23:16]),
             .out_right(wire_row_2[15:8]), .out_down(wire_col_2[15:8]), .weight_en(weight_en[12]), .go(go_pe)); 
     PE pe23(.clk(clk), .rst(rst), 
-            .in_left(wire_row_2[15:8]), .in_up(wire_col_3[23:16]), .in_weight(data_in_b_shifted[15:8]),
+            .in_left(wire_row_2[15:8]), .in_up(wire_col_3[23:16]), .in_weight(padded_b[15:8]),
             .out_right(wire_row_2[7:0]), .out_down(wire_col_3[15:8]), .weight_en(weight_en[13]), .go(go_pe));    
     PE pe24(.clk(clk), .rst(rst), 
-            .in_left(wire_row_2[7:0]), .in_up(wire_col_4[23:16]), .in_weight(data_in_b_shifted[7:0]),
+            .in_left(wire_row_2[7:0]), .in_up(wire_col_4[23:16]), .in_weight(padded_b[7:0]),
             .out_right(), .out_down(wire_col_4[15:8]), .weight_en(weight_en[14]), .go(go_pe)); 
 
     // --- ROW 3 ---
     PE pe30(.clk(clk), .rst(rst), 
-            .in_left(left_buf3[0]), .in_up(wire_col_0[15:8]), .in_weight(data_in_b_shifted[39:32]),
+            .in_left(left_buf3[0]), .in_up(wire_col_0[15:8]), .in_weight(padded_b[39:32]),
             .out_right(wire_row_3[31:24]), .out_down(wire_col_0[7:0]), .weight_en(weight_en[15]), .go(go_pe));  
     PE pe31(.clk(clk), .rst(rst), 
-            .in_left(wire_row_3[31:24]), .in_up(wire_col_1[15:8]), .in_weight(data_in_b_shifted[31:24]),
+            .in_left(wire_row_3[31:24]), .in_up(wire_col_1[15:8]), .in_weight(padded_b[31:24]),
             .out_right(wire_row_3[23:16]), .out_down(wire_col_1[7:0]), .weight_en(weight_en[16]), .go(go_pe)); 
     PE pe32(.clk(clk), .rst(rst), 
-            .in_left(wire_row_3[23:16]), .in_up(wire_col_2[15:8]), .in_weight(data_in_b_shifted[23:16]),
+            .in_left(wire_row_3[23:16]), .in_up(wire_col_2[15:8]), .in_weight(padded_b[23:16]),
             .out_right(wire_row_3[15:8]), .out_down(wire_col_2[7:0]), .weight_en(weight_en[17]), .go(go_pe)); 
     PE pe33(.clk(clk), .rst(rst), 
-            .in_left(wire_row_3[15:8]), .in_up(wire_col_3[15:8]), .in_weight(data_in_b_shifted[15:8]),
+            .in_left(wire_row_3[15:8]), .in_up(wire_col_3[15:8]), .in_weight(padded_b[15:8]),
             .out_right(wire_row_3[7:0]), .out_down(wire_col_3[7:0]), .weight_en(weight_en[18]), .go(go_pe)); 
     PE pe34(.clk(clk), .rst(rst), 
-            .in_left(wire_row_3[7:0]), .in_up(wire_col_4[15:8]), .in_weight(data_in_b_shifted[7:0]),
+            .in_left(wire_row_3[7:0]), .in_up(wire_col_4[15:8]), .in_weight(padded_b[7:0]),
             .out_right(), .out_down(wire_col_4[7:0]), .weight_en(weight_en[19]), .go(go_pe)); 
 
     // --- ROW 4 ---
     PE pe40(.clk(clk), .rst(rst), 
-            .in_left(left_buf4[0]), .in_up(wire_col_0[7:0]), .in_weight(data_in_b_shifted[39:32]),
+            .in_left(left_buf4[0]), .in_up(wire_col_0[7:0]), .in_weight(padded_b[39:32]),
             .out_right(wire_row_4[31:24]), .out_down(down_wire0[7:0]), .weight_en(weight_en[20]), .go(go_pe));  
     PE pe41(.clk(clk), .rst(rst), 
-            .in_left(wire_row_4[31:24]), .in_up(wire_col_1[7:0]), .in_weight(data_in_b_shifted[31:24]),
+            .in_left(wire_row_4[31:24]), .in_up(wire_col_1[7:0]), .in_weight(padded_b[31:24]),
             .out_right(wire_row_4[23:16]), .out_down(down_wire1[7:0]), .weight_en(weight_en[21]), .go(go_pe)); 
     PE pe42(.clk(clk), .rst(rst), 
-            .in_left(wire_row_4[23:16]), .in_up(wire_col_2[7:0]), .in_weight(data_in_b_shifted[23:16]),
+            .in_left(wire_row_4[23:16]), .in_up(wire_col_2[7:0]), .in_weight(padded_b[23:16]),
             .out_right(wire_row_4[15:8]), .out_down(down_wire2[7:0]), .weight_en(weight_en[22]), .go(go_pe)); 
     PE pe43(.clk(clk), .rst(rst), 
-            .in_left(wire_row_4[15:8]), .in_up(wire_col_3[7:0]), .in_weight(data_in_b_shifted[15:8]),
+            .in_left(wire_row_4[15:8]), .in_up(wire_col_3[7:0]), .in_weight(padded_b[15:8]),
             .out_right(wire_row_4[7:0]), .out_down(down_wire3[7:0]), .weight_en(weight_en[23]), .go(go_pe)); 
     PE pe44(.clk(clk), .rst(rst), 
-            .in_left(wire_row_4[7:0]), .in_up(wire_col_4[7:0]), .in_weight(data_in_b_shifted[7:0]),
+            .in_left(wire_row_4[7:0]), .in_up(wire_col_4[7:0]), .in_weight(padded_b[7:0]),
             .out_right(), .out_down(down_wire4[7:0]), .weight_en(weight_en[24]), .go(go_pe)); 
     
     /******** combinational circuit ********/   
     always @(*) begin
-        // *** FIX 2: Default Assignment to prevent inferred latch ***
+        // Fix 2: Prevent Inferred Latch
         output_buf_rst = 0; 
 
         case (state)
@@ -178,7 +189,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                 temp_kb = 0;
                 temp_ma = 0; a_count = 1;
                 base_a = 0; base_b = 0; out_max = m;
-                output_buf_rst = 1; // Explicit Set
+                output_buf_rst = 1;
                 wr_en_o = 0;
                 if(start == 1'b1) state_nxt = LOAD;
                 else state_nxt = IDLE;
@@ -200,7 +211,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     state_nxt = LOAD;
                 end
                 
-                // Weight Enable Control
                 for(i = 0; i <= 24; i = i + 1) begin
                     if(i >= weight_base && i <= (weight_base + 4)) begin 
                         weight_en[i] = 1;
@@ -218,7 +228,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     weight_en[j] = 0;
                 end
                 
-                // Latency: 5+5+4 = 14
+                // Latency
                 if(exe_count == 14) begin
                     pe_ok = 1;
                     state_nxt = STORE;
@@ -230,7 +240,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
             end
             STORE: begin
                 wr_en_o = 0;
-                // 5 Rows Modulo check
                 if( ((base_a + 1) % k == 0 ) || ((base_a + 2) % k == 0 ) || ((base_a + 3) % k == 0 ) || ((base_a + 4) % k == 0 ) || ((base_a + 5) % k == 0 ) && ((base_b + 1) % k == 0 ) || ((base_b + 2) % k == 0 ) || ((base_b + 3) % k == 0 ) || ((base_b + 4) % k == 0 ) || ((base_b + 5) % k == 0 )) begin
                     state_nxt = OUTPUT;
                     temp_ma = temp_ma + 5;
@@ -302,7 +311,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
             state <= IDLE;
             index_o <= 0;
             
-            // Buffer Reset
             for(i=0; i<5; i=i+1) begin
                 output_buf[i] <= 0;
             end
@@ -334,21 +342,25 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                         end
                     end
                     
-                    // *** FIX 1: Shift input data (<<8) to align 32-bit file data to 40-bit MSB ***
+                    // Load 32-bit data into 40-bit buffers (MSB alignment)
+                    // data_in_a is 32 bit. We pad 8 bits of 0 at LSB.
+                    // Logic: padded_a = {data, 8'0}.
+                    // left_buf[0] gets top byte of padded_a -> data[31:24]
+                    // left_buf[4] gets bottom byte of padded_a -> 0
                     if(load_count == 0 && temp_ma <= m) begin
-                        {left_buf0[0],left_buf0[1],left_buf0[2],left_buf0[3],left_buf0[4],left_buf0[5],left_buf0[6],left_buf0[7],left_buf0[8],left_buf0[9]} <= {data_in_a << 8, 40'd0};
+                        {left_buf0[0],left_buf0[1],left_buf0[2],left_buf0[3],left_buf0[4],left_buf0[5],left_buf0[6],left_buf0[7],left_buf0[8],left_buf0[9]} <= {padded_a, 40'd0};
                     end
                     else if(load_count == 1 && temp_ma <= m) begin
-                        {left_buf1[0],left_buf1[1],left_buf1[2],left_buf1[3],left_buf1[4],left_buf1[5],left_buf1[6],left_buf1[7],left_buf1[8],left_buf1[9]} <= {8'd0, data_in_a << 8, 32'd0};
+                        {left_buf1[0],left_buf1[1],left_buf1[2],left_buf1[3],left_buf1[4],left_buf1[5],left_buf1[6],left_buf1[7],left_buf1[8],left_buf1[9]} <= {8'd0, padded_a, 32'd0};
                     end
                     else if(load_count == 2 && temp_ma <= m) begin
-                        {left_buf2[0],left_buf2[1],left_buf2[2],left_buf2[3],left_buf2[4],left_buf2[5],left_buf2[6],left_buf2[7],left_buf2[8],left_buf2[9]} <= {16'd0, data_in_a << 8, 24'd0};
+                        {left_buf2[0],left_buf2[1],left_buf2[2],left_buf2[3],left_buf2[4],left_buf2[5],left_buf2[6],left_buf2[7],left_buf2[8],left_buf2[9]} <= {16'd0, padded_a, 24'd0};
                     end
                     else if(load_count == 3 &&  temp_ma <= m) begin
-                        {left_buf3[0],left_buf3[1],left_buf3[2],left_buf3[3],left_buf3[4],left_buf3[5],left_buf3[6],left_buf3[7],left_buf3[8],left_buf3[9]} <= {24'd0, data_in_a << 8, 16'd0};
+                        {left_buf3[0],left_buf3[1],left_buf3[2],left_buf3[3],left_buf3[4],left_buf3[5],left_buf3[6],left_buf3[7],left_buf3[8],left_buf3[9]} <= {24'd0, padded_a, 16'd0};
                     end
                     else if(load_count == 4 &&  temp_ma <= m) begin
-                        {left_buf4[0],left_buf4[1],left_buf4[2],left_buf4[3],left_buf4[4],left_buf4[5],left_buf4[6],left_buf4[7],left_buf4[8],left_buf4[9]} <= {32'd0, data_in_a << 8, 8'd0};
+                        {left_buf4[0],left_buf4[1],left_buf4[2],left_buf4[3],left_buf4[4],left_buf4[5],left_buf4[6],left_buf4[7],left_buf4[8],left_buf4[9]} <= {32'd0, padded_a, 8'd0};
                     end
 
                     if(load_count <= 4) begin 
@@ -391,10 +403,10 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     exe_count <= exe_count + 1;
                 end
                 STORE: begin
-                    // *** FIX 3: Byte-wise Addition (Vector Add) ***
-                    // Prevents overflow carry from byte 0 to byte 1
+                    // Fix 3: Byte-wise addition & 32-bit packing
+                    // We ignore down_buf4 (Col 4) which is 0.
+                    // down_buf3 maps to output[31:24], down_buf0 maps to output[7:0]
                     output_buf[0] <= {
-                        output_buf[0][39:32] + down_buf4[5],
                         output_buf[0][31:24] + down_buf3[6],
                         output_buf[0][23:16] + down_buf2[7],
                         output_buf[0][15:8]  + down_buf1[8],
@@ -402,7 +414,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     };
 
                     output_buf[1] <= {
-                        output_buf[1][39:32] + down_buf4[4],
                         output_buf[1][31:24] + down_buf3[5],
                         output_buf[1][23:16] + down_buf2[6],
                         output_buf[1][15:8]  + down_buf1[7],
@@ -410,7 +421,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     };
 
                     output_buf[2] <= {
-                        output_buf[2][39:32] + down_buf4[3],
                         output_buf[2][31:24] + down_buf3[4],
                         output_buf[2][23:16] + down_buf2[5],
                         output_buf[2][15:8]  + down_buf1[6],
@@ -418,7 +428,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     };
 
                     output_buf[3] <= {
-                        output_buf[3][39:32] + down_buf4[2],
                         output_buf[3][31:24] + down_buf3[3],
                         output_buf[3][23:16] + down_buf2[4],
                         output_buf[3][15:8]  + down_buf1[5],
@@ -426,7 +435,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     };
 
                     output_buf[4] <= {
-                        output_buf[4][39:32] + down_buf4[1],
                         output_buf[4][31:24] + down_buf3[2],
                         output_buf[4][23:16] + down_buf2[3],
                         output_buf[4][15:8]  + down_buf1[4],
