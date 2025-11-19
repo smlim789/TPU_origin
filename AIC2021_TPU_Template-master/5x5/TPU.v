@@ -2,7 +2,19 @@
 `define TPU_V
 
 `include "define.v"
-// `include "pe.v" // Uncomment if PE is in a separate file, usually compiled together
+// `include "pe.v" // Uncomment if compiling without a file list
+
+// --- SAFETY DEFAULTS ---
+// Ensure macros are defined even if define.v include is blocked by old guards
+`ifndef LEFT_BUF_SIZE
+    `define LEFT_BUF_SIZE 10
+`endif
+`ifndef DOWN_BUF_SIZE
+    `define DOWN_BUF_SIZE 14
+`endif
+`ifndef WORD_SIZE
+    `define WORD_SIZE 40
+`endif
 
 module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
            data_in_a, data_in_b, data_in_o,
@@ -25,7 +37,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     DONE    = 3'd5;
     
     /******** data storage for PE (5x5) ********/
-    // Added 5th buffers (buf4)
     reg [`DATA_SIZE-1:0] left_buf0 [`LEFT_BUF_SIZE-1:0];
     reg [`DATA_SIZE-1:0] left_buf1 [`LEFT_BUF_SIZE-1:0];
     reg [`DATA_SIZE-1:0] left_buf2 [`LEFT_BUF_SIZE-1:0];
@@ -38,7 +49,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
     reg [`DATA_SIZE-1:0] down_buf3 [`DOWN_BUF_SIZE-1:0];
     reg [`DATA_SIZE-1:0] down_buf4 [`DOWN_BUF_SIZE-1:0];
     
-    /******** wire connection of PE (Updated for 5 columns) ********/
+    /******** wire connection of PE (5 cols) ********/
     wire [`DATA_SIZE-1:0] down_wire0;
     wire [`DATA_SIZE-1:0] down_wire1;
     wire [`DATA_SIZE-1:0] down_wire2;
@@ -63,11 +74,11 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
     reg [`WORD_SIZE-1:0] output_buf [4:0];
     
     /******** control register ********/
-    reg weight_en [24:0]; // 5x5 = 25 weights
+    reg weight_en [24:0]; // 25 PEs
     reg output_buf_rst;
     integer i, j;
     reg [6:0] load_count;
-    reg [2:0] out_count;  // Increased bit width for count > 3
+    reg [2:0] out_count;  // Increased width for 5
     reg [4:0] weight_base;
     reg go_pe, pe_ok;
     reg [8:0] temp_ma, temp_kb, temp_a, temp_b, temp_o, a_count;
@@ -144,7 +155,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
             .in_left(wire_row_3[7:0]), .in_up(wire_col_4[15:8]), .in_weight(data_in_b[7:0]),
             .out_right(), .out_down(wire_col_4[7:0]), .weight_en(weight_en[19]), .go(go_pe)); 
 
-    // --- ROW 4 (New) ---
+    // --- ROW 4 ---
     PE pe40(.clk(clk), .rst(rst), 
             .in_left(left_buf4[0]), .in_up(wire_col_0[7:0]), .in_weight(data_in_b[39:32]),
             .out_right(wire_row_4[31:24]), .out_down(down_wire0[7:0]), .weight_en(weight_en[20]), .go(go_pe));  
@@ -184,11 +195,11 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                 wr_en_b = 1'b0;
                 wr_en_o = 0;
                 
-                // Fixed the off-by-one error here (removed +1)
+                // FIX: Removed "+ 1" off-by-one error
                 index_a = temp_a;
                 index_b = temp_b;
                 
-                // Checks adjusted for 5x5 (check > 5, load_count 4)
+                // 5x5 Logic: check > 5, load_count 4
                 if(((index_a >= ((k)*a_count))&&(index_a > 5)) || (load_count) == 4) begin
                     state_nxt = EXE;
                 end
@@ -196,9 +207,8 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     state_nxt = LOAD;
                 end
                 
-                // Weight enable loop up to 24 (25 PEs)
+                // Weight Enable: 25 PEs
                 for(i = 0; i <= 24; i = i + 1) begin
-                    // Enable weights in blocks of 5
                     if(i >= weight_base && i <= (weight_base + 4)) begin 
                         weight_en[i] = 1;
                     end
@@ -215,7 +225,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     weight_en[j] = 0;
                 end
                 
-                // Latency check increased for larger array
+                // Latency: 5+5+4 = 14
                 if(exe_count == 14) begin
                     pe_ok = 1;
                     state_nxt = STORE;
@@ -227,7 +237,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
             end
             STORE: begin
                 wr_en_o = 0;
-                // Modulo check extended to 5 rows
+                // 5 Rows Modulo check
                 if( ((base_a + 1) % k == 0 ) || ((base_a + 2) % k == 0 ) || ((base_a + 3) % k == 0 ) || ((base_a + 4) % k == 0 ) || ((base_a + 5) % k == 0 ) && ((base_b + 1) % k == 0 ) || ((base_b + 2) % k == 0 ) || ((base_b + 3) % k == 0 ) || ((base_b + 4) % k == 0 ) || ((base_b + 5) % k == 0 )) begin
                     state_nxt = OUTPUT;
                     temp_ma = temp_ma + 5;
@@ -255,10 +265,9 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                 else if(out_count == 3) begin
                     data_out_o = output_buf[3];
                 end
-                else if(out_count == 4) begin // Added 5th output
+                else if(out_count == 4) begin
                     data_out_o = output_buf[4];
                 end
-                
                 
                 if(((out_count+1) >= out_max) || (out_count == 4)) begin
                     if(temp_o >= ((((n-1)/5)+1)*m)-1 ) begin
@@ -310,7 +319,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
             state <= IDLE;
             index_o <= 0;
             
-            // Reset output buffers
+            // Buffer Reset
             for(i=0; i<5; i=i+1) begin
                 output_buf[i] <= 0;
             end
@@ -342,9 +351,7 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                         end
                     end
                     
-                    // Loading Left Buffers with Skew
-                    // Note: {left_buf...} assignment packs 10 bytes.
-                    // data_in_a is 5 bytes (40 bits).
+                    // Left Buffer Loading (Packing 40 bits into 80-bit array chunks)
                     if(load_count == 0 && temp_ma <= m) begin
                         {left_buf0[0],left_buf0[1],left_buf0[2],left_buf0[3],left_buf0[4],left_buf0[5],left_buf0[6],left_buf0[7],left_buf0[8],left_buf0[9]} <= {data_in_a, 40'd0};
                     end
@@ -370,7 +377,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                         temp_b <= temp_b;
                     end
                     
-                    // Weight base increments by 5
                     if(weight_base == 20) weight_base <= 0;
                     else weight_base <= weight_base + 5;
                 end
@@ -381,30 +387,28 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     down_buf1[0] <= down_wire1[7:0];
                     down_buf2[0] <= down_wire2[7:0];
                     down_buf3[0] <= down_wire3[7:0];
-                    down_buf4[0] <= down_wire4[7:0]; // Added
+                    down_buf4[0] <= down_wire4[7:0];
                     
-                    // Shift Left Buffers (Size 10, so max index 9)
+                    // Shift Registers
                     for(i = 0; i < 9; i = i + 1) begin
                         left_buf0[i] <= left_buf0[i+1];
                         left_buf1[i] <= left_buf1[i+1];
                         left_buf2[i] <= left_buf2[i+1];
                         left_buf3[i] <= left_buf3[i+1];
-                        left_buf4[i] <= left_buf4[i+1]; // Added
+                        left_buf4[i] <= left_buf4[i+1];
                     end
                     
-                    // Shift Down Buffers (Size 14, so max index 13)
                     for(i = 0; i < 13; i = i + 1) begin
                         down_buf0[i+1] <= down_buf0[i];
                         down_buf1[i+1] <= down_buf1[i];
                         down_buf2[i+1] <= down_buf2[i];
                         down_buf3[i+1] <= down_buf3[i];
-                        down_buf4[i+1] <= down_buf4[i]; // Added
+                        down_buf4[i+1] <= down_buf4[i];
                     end
                     exe_count <= exe_count + 1;
                 end
                 STORE: begin
-                    // Diagonal Summation Logic for 5x5
-                    // Each output collects from down_bufs with increasing delay
+                    // Diagonal Collection
                     output_buf[0] <= output_buf[0] + {down_buf4[5], down_buf3[6], down_buf2[7], down_buf1[8], down_buf0[9]};
                     output_buf[1] <= output_buf[1] + {down_buf4[4], down_buf3[5], down_buf2[6], down_buf1[7], down_buf0[8]};
                     output_buf[2] <= output_buf[2] + {down_buf4[3], down_buf3[4], down_buf2[5], down_buf1[6], down_buf0[7]};
