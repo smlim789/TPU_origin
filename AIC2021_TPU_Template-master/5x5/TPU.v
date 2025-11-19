@@ -195,8 +195,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     else for(i=0; i<5; i=i+1) output_buf[i] <= output_buf[i];
                     
                     // NATIVE 40-BIT LOADING. 
-                    // Using unpacking syntax to fill the 8-bit registers.
-                    // data_in_a[39:32] -> left_buf0[0] (MSB/First into PE)
                     if(load_count == 0 && temp_ma <= m) begin
                         {left_buf0[0],left_buf0[1],left_buf0[2],left_buf0[3],left_buf0[4],left_buf0[5],left_buf0[6],left_buf0[7],left_buf0[8],left_buf0[9]} <= {data_in_a, 40'd0};
                     end
@@ -237,43 +235,43 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
                     exe_count <= exe_count + 1;
                 end
                 STORE: begin
-                    // BYTE-WISE ADDITION (Prevents Carry Overflow)
-                    // Mapping: MSB[39:32] is Col 0 (down_buf4)
-                    // LSB[7:0] is Col 4 (down_buf0)
+                    // *** FIXED MAPPING HERE ***
+                    // down_buf0 (Col 0) mapped to MSB [39:32] using index 9
+                    // down_buf4 (Col 4) mapped to LSB [7:0] using index 5
                     output_buf[0] <= {
-                        output_buf[0][39:32] + down_buf4[5],
-                        output_buf[0][31:24] + down_buf3[6],
+                        output_buf[0][39:32] + down_buf0[9],
+                        output_buf[0][31:24] + down_buf1[8],
                         output_buf[0][23:16] + down_buf2[7],
-                        output_buf[0][15:8]  + down_buf1[8],
-                        output_buf[0][7:0]   + down_buf0[9]
+                        output_buf[0][15:8]  + down_buf3[6],
+                        output_buf[0][7:0]   + down_buf4[5]
                     };
                     output_buf[1] <= {
-                        output_buf[1][39:32] + down_buf4[4],
-                        output_buf[1][31:24] + down_buf3[5],
+                        output_buf[1][39:32] + down_buf0[8],
+                        output_buf[1][31:24] + down_buf1[7],
                         output_buf[1][23:16] + down_buf2[6],
-                        output_buf[1][15:8]  + down_buf1[7],
-                        output_buf[1][7:0]   + down_buf0[8]
+                        output_buf[1][15:8]  + down_buf3[5],
+                        output_buf[1][7:0]   + down_buf4[4]
                     };
                     output_buf[2] <= {
-                        output_buf[2][39:32] + down_buf4[3],
-                        output_buf[2][31:24] + down_buf3[4],
+                        output_buf[2][39:32] + down_buf0[7],
+                        output_buf[2][31:24] + down_buf1[6],
                         output_buf[2][23:16] + down_buf2[5],
-                        output_buf[2][15:8]  + down_buf1[6],
-                        output_buf[2][7:0]   + down_buf0[7]
+                        output_buf[2][15:8]  + down_buf3[4],
+                        output_buf[2][7:0]   + down_buf4[3]
                     };
                     output_buf[3] <= {
-                        output_buf[3][39:32] + down_buf4[2],
-                        output_buf[3][31:24] + down_buf3[3],
+                        output_buf[3][39:32] + down_buf0[6],
+                        output_buf[3][31:24] + down_buf1[5],
                         output_buf[3][23:16] + down_buf2[4],
-                        output_buf[3][15:8]  + down_buf1[5],
-                        output_buf[3][7:0]   + down_buf0[6]
+                        output_buf[3][15:8]  + down_buf3[3],
+                        output_buf[3][7:0]   + down_buf4[2]
                     };
                     output_buf[4] <= {
-                        output_buf[4][39:32] + down_buf4[1],
-                        output_buf[4][31:24] + down_buf3[2],
+                        output_buf[4][39:32] + down_buf0[5],
+                        output_buf[4][31:24] + down_buf1[4],
                         output_buf[4][23:16] + down_buf2[3],
-                        output_buf[4][15:8]  + down_buf1[4],
-                        output_buf[4][7:0]   + down_buf0[5]
+                        output_buf[4][15:8]  + down_buf3[2],
+                        output_buf[4][7:0]   + down_buf4[1]
                     };
                     load_count <= 0;
                 end                 
