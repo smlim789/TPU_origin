@@ -23,7 +23,7 @@
 `define DEFINE_V
 
 `define DATA_SIZE 8
-`define WORD_SIZE 40 // *** CHANGED: Was 32 (4x8), now 40 (5x8) ***
+`define WORD_SIZE 32 // *** CHANGED: Was 32 (4x8), now 40 (5x8) ***
 `define GBUFF_ADDR_SIZE 256
 //`define GBUFF_INDX_SIZE (GBUFF_ADDR_SIZE/WORD_SIZE)
 `define GBUFF_INDX_SIZE 8
