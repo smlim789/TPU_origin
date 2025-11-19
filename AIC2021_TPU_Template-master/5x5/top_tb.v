@@ -26,92 +26,112 @@ module top_tb;
     $dumpfile("top.fsdb");
     $dumpvars(0, TOP);
 
+    // -----------------------------------------------------------
+    // 1. SETUP DIMENSIONS
+    // -----------------------------------------------------------
     clk = 0;  rst = 1; start = 0;
     #(`CYCLE) rst = 0; start = 1;
-    row_a = `MATRIX_A_ROW; col_b = `MATRIX_B_COL; k = `MATRIX_A_COL;
+    
+    row_a = 5; 
+    col_b = 5; 
+    k     = 5; 
     
     // -----------------------------------------------------------
-    // MANUAL DATA LOADING (Bypassing 32-bit binary files)
-    // Mapping: MSB [39:32] = Index 0 (First Element)
-    //          LSB [7:0]   = Index 4 (Last Element)
+    // 2. MANUAL DATA LOADING
     // -----------------------------------------------------------
-
-    // Initialize Global Buffers with 0
+    // Initialize Buffers
     for(i=0; i<`GBUFF_ADDR_SIZE; i=i+1) begin
         TOP.GBUFF_A.gbuff[i] = 40'd0;
         TOP.GBUFF_B.gbuff[i] = 40'd0;
         GOLDEN[i] = 40'd0;
     end
 
-    // MATRIX A (5x5)
-    // Row 0: 0 1 0 0 0 -> 00 01 00 00 00
-    TOP.GBUFF_A.gbuff[0] = 40'h00_01_00_00_00;
-    // Row 1: 1 0 0 0 1 -> 01 00 00 00 01
-    TOP.GBUFF_A.gbuff[1] = 40'h01_00_00_00_01;
-    // Row 2: 0 0 0 0 1 -> 00 00 00 00 01
-    TOP.GBUFF_A.gbuff[2] = 40'h00_00_00_00_01;
-    // Row 3: 0 1 1 1 0 -> 00 01 01 01 00
-    TOP.GBUFF_A.gbuff[3] = 40'h00_01_01_01_00;
-    // Row 4: 1 0 1 1 1 -> 01 00 01 01 01
-    TOP.GBUFF_A.gbuff[4] = 40'h01_00_01_01_01;
+    // --- MATRIX A (TRANSPOSED) ---
+    // The architecture expects Columns of A to be fed to Rows of the Array.
+    // Original A:
+    // 0 1 0 0 0
+    // 1 0 0 0 1
+    // 0 0 0 0 1
+    // 0 1 1 1 0
+    // 1 0 1 1 1
+    
+    // Transposed A (Col 0 becomes Row 0): 0 1 0 0 1
+    TOP.GBUFF_A.gbuff[0] = 40'h00_01_00_00_01;
+    // Transposed A (Col 1 becomes Row 1): 1 0 0 1 0
+    TOP.GBUFF_A.gbuff[1] = 40'h01_00_00_01_00;
+    // Transposed A (Col 2 becomes Row 2): 0 0 0 1 1
+    TOP.GBUFF_A.gbuff[2] = 40'h00_00_00_01_01;
+    // Transposed A (Col 3 becomes Row 3): 0 0 0 1 1
+    TOP.GBUFF_A.gbuff[3] = 40'h00_00_00_01_01;
+    // Transposed A (Col 4 becomes Row 4): 0 1 1 0 1
+    TOP.GBUFF_A.gbuff[4] = 40'h00_01_01_00_01;
 
-    // MATRIX B (5x5)
-    // Row 0: 1 1 1 1 1 -> 01 01 01 01 01
+    // --- MATRIX B (STANDARD) ---
+    // PE grid holds B statically. Row k of PEs gets Row k of B.
+    // Row 0: 1 1 1 1 1 -> Hex: 01 01 01 01 01
     TOP.GBUFF_B.gbuff[0] = 40'h01_01_01_01_01;
-    // Row 1: 0 0 1 1 1 -> 00 00 01 01 01
+    // Row 1: 0 0 1 1 1 -> Hex: 00 00 01 01 01
     TOP.GBUFF_B.gbuff[1] = 40'h00_00_01_01_01;
-    // Row 2: 0 1 0 0 0 -> 00 01 00 00 00
+    // Row 2: 0 1 0 0 0 -> Hex: 00 01 00 00 00
     TOP.GBUFF_B.gbuff[2] = 40'h00_01_00_00_00;
-    // Row 3: 0 0 1 1 1 -> 00 00 01 01 01
+    // Row 3: 0 0 1 1 1 -> Hex: 00 00 01 01 01
     TOP.GBUFF_B.gbuff[3] = 40'h00_00_01_01_01;
-    // Row 4: 1 1 0 1 1 -> 01 01 00 01 01
+    // Row 4: 1 1 0 1 1 -> Hex: 01 01 00 01 01
     TOP.GBUFF_B.gbuff[4] = 40'h01_01_00_01_01;
 
-    // MATRIX C (GOLDEN) - This is what we expect
-    // Row 0: 0 0 1 1 1 -> 00 00 01 01 01
+    // --- GOLDEN RESULT (C = A @ B) ---
+    // Row 0: 0 0 1 1 1 -> Hex: 00 00 01 01 01
     GOLDEN[0] = 40'h00_00_01_01_01;
-    // Row 1: 2 2 1 2 2 -> 02 02 01 02 02
+    // Row 1: 2 2 1 2 2 -> Hex: 02 02 01 02 02
     GOLDEN[1] = 40'h02_02_01_02_02;
-    // Row 2: 1 1 0 1 1 -> 01 01 00 01 01
+    // Row 2: 1 1 0 1 1 -> Hex: 01 01 00 01 01
     GOLDEN[2] = 40'h01_01_00_01_01;
-    // Row 3: 0 1 2 2 2 -> 00 01 02 02 02
+    // Row 3: 0 1 2 2 2 -> Hex: 00 01 02 02 02
     GOLDEN[3] = 40'h00_01_02_02_02;
-    // Row 4: 2 3 2 3 3 -> 02 03 02 03 03
+    // Row 4: 2 3 2 3 3 -> Hex: 02 03 02 03 03
     GOLDEN[4] = 40'h02_03_02_03_03;
 
-    row_offset = (`MATRIX_B_COL - 1) / 5 + 1;
+    row_offset = (5 - 1) / 5 + 1;
     
     wait(done == 1);
     $display("\nSimulation Done.\n");
 
+    // -----------------------------------------------------------
+    // 3. VERIFICATION
+    // -----------------------------------------------------------
     err = 0;
-    // Loop for 5x5 (only need to check first 5 addresses)
+    // Check only the 5 output rows
     for (i = 0; i < 5; i=i+1) begin
-      // Check all 5 bytes. MSB is Index 0.
-      // Check Byte 0 (MSB)
-      if (GOLDEN[i][39:32] !== TOP.GBUFF_OUT.gbuff[i][39:32]) begin
-        $display("GBUFF_OUT[%2d][39:32] = %2h, expect = %2h", i, TOP.GBUFF_OUT.gbuff[i][39:32], GOLDEN[i][39:32]); err = err + 1;
-      end else $display("GBUFF_OUT[%2d][39:32] = %2h, pass!", i, TOP.GBUFF_OUT.gbuff[i][39:32]);
-
-      // Check Byte 1
-      if (GOLDEN[i][31:24] !== TOP.GBUFF_OUT.gbuff[i][31:24]) begin
-        $display("GBUFF_OUT[%2d][31:24] = %2h, expect = %2h", i, TOP.GBUFF_OUT.gbuff[i][31:24], GOLDEN[i][31:24]); err = err + 1;
-      end else $display("GBUFF_OUT[%2d][31:24] = %2h, pass!", i, TOP.GBUFF_OUT.gbuff[i][31:24]);
-
-      // Check Byte 2
-      if (GOLDEN[i][23:16] !== TOP.GBUFF_OUT.gbuff[i][23:16]) begin
-        $display("GBUFF_OUT[%2d][23:16] = %2h, expect = %2h", i, TOP.GBUFF_OUT.gbuff[i][23:16], GOLDEN[i][23:16]); err = err + 1;
-      end else $display("GBUFF_OUT[%2d][23:16] = %2h, pass!", i, TOP.GBUFF_OUT.gbuff[i][23:16]);
-
-      // Check Byte 3
-      if (GOLDEN[i][15:8] !== TOP.GBUFF_OUT.gbuff[i][15:8]) begin
-        $display("GBUFF_OUT[%2d][15: 8] = %2h, expect = %2h", i, TOP.GBUFF_OUT.gbuff[i][15:8], GOLDEN[i][15:8]); err = err + 1;
-      end else $display("GBUFF_OUT[%2d][15: 8] = %2h, pass!", i, TOP.GBUFF_OUT.gbuff[i][15:8]);
       
-      // Check Byte 4 (LSB)
+      // Byte 0 (Bits 39:32) - First Column
+      if (GOLDEN[i][39:32] !== TOP.GBUFF_OUT.gbuff[i][39:32]) begin
+        $display("Row %d Col 0: Found %h, Expect %h", i, TOP.GBUFF_OUT.gbuff[i][39:32], GOLDEN[i][39:32]); 
+        err = err + 1;
+      end else $display("Row %d Col 0: Pass!", i);
+
+      // Byte 1 (Bits 31:24)
+      if (GOLDEN[i][31:24] !== TOP.GBUFF_OUT.gbuff[i][31:24]) begin
+        $display("Row %d Col 1: Found %h, Expect %h", i, TOP.GBUFF_OUT.gbuff[i][31:24], GOLDEN[i][31:24]); 
+        err = err + 1;
+      end else $display("Row %d Col 1: Pass!", i);
+
+      // Byte 2 (Bits 23:16)
+      if (GOLDEN[i][23:16] !== TOP.GBUFF_OUT.gbuff[i][23:16]) begin
+        $display("Row %d Col 2: Found %h, Expect %h", i, TOP.GBUFF_OUT.gbuff[i][23:16], GOLDEN[i][23:16]); 
+        err = err + 1;
+      end else $display("Row %d Col 2: Pass!", i);
+
+      // Byte 3 (Bits 15:8)
+      if (GOLDEN[i][15:8] !== TOP.GBUFF_OUT.gbuff[i][15:8]) begin
+        $display("Row %d Col 3: Found %h, Expect %h", i, TOP.GBUFF_OUT.gbuff[i][15:8], GOLDEN[i][15:8]); 
+        err = err + 1;
+      end else $display("Row %d Col 3: Pass!", i);
+      
+      // Byte 4 (Bits 7:0) - Last Column
       if (GOLDEN[i][7:0] !== TOP.GBUFF_OUT.gbuff[i][7:0]) begin
-        $display("GBUFF_OUT[%2d][ 7: 0] = %2h, expect = %2h", i, TOP.GBUFF_OUT.gbuff[i][7:0], GOLDEN[i][7:0]); err = err + 1;
-      end else $display("GBUFF_OUT[%2d][ 7: 0] = %2h, pass!", i, TOP.GBUFF_OUT.gbuff[i][7:0]);
+        $display("Row %d Col 4: Found %h, Expect %h", i, TOP.GBUFF_OUT.gbuff[i][7:0], GOLDEN[i][7:0]); 
+        err = err + 1;
+      end else $display("Row %d Col 4: Pass!", i);
     end
 
     check_err(err);
