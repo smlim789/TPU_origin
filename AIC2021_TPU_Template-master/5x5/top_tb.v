@@ -47,14 +47,6 @@ module top_tb;
     end
 
     // --- MATRIX A (TRANSPOSED) ---
-    // The architecture expects Columns of A to be fed to Rows of the Array.
-    // Original A:
-    // 0 1 0 0 0
-    // 1 0 0 0 1
-    // 0 0 0 0 1
-    // 0 1 1 1 0
-    // 1 0 1 1 1
-    
     // Transposed A (Col 0 becomes Row 0): 0 1 0 0 1
     TOP.GBUFF_A.gbuff[0] = 40'h00_01_00_00_01;
     // Transposed A (Col 1 becomes Row 1): 1 0 0 1 0
@@ -67,7 +59,6 @@ module top_tb;
     TOP.GBUFF_A.gbuff[4] = 40'h00_01_01_00_01;
 
     // --- MATRIX B (STANDARD) ---
-    // PE grid holds B statically. Row k of PEs gets Row k of B.
     // Row 0: 1 1 1 1 1 -> Hex: 01 01 01 01 01
     TOP.GBUFF_B.gbuff[0] = 40'h01_01_01_01_01;
     // Row 1: 0 0 1 1 1 -> Hex: 00 00 01 01 01
