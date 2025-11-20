@@ -1,3 +1,0 @@
-python3 matmul.py inputs2
-iverilog -g2012 -o simv -I src -I build -Dtest1 -s top_tb src/top_tb.v
-vvp simv
