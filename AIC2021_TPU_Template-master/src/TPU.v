@@ -178,7 +178,6 @@ module TPU(clk, rst, wr_en_a, wr_en_b, wr_en_o, index_a, index_b, index_o,
 				temp_ma = 0; a_count = 1;
 				base_a = 0; base_b = 0; out_max = m;
 				output_buf_rst = 1;
-				wr_en_o = 0;
 				if(start == 1'b1) state_nxt = LOAD;
 				else state_nxt = IDLE;
 			end
